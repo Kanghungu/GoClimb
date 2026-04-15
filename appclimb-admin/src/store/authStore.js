@@ -3,6 +3,7 @@ import { create } from 'zustand'
 const useAuthStore = create((set) => ({
   token: localStorage.getItem('token') || null,
   user: JSON.parse(localStorage.getItem('user') || 'null'),
+  myGym: JSON.parse(localStorage.getItem('myGym') || 'null'), // MANAGER 전용 지점 정보
 
   login: (token, user) => {
     localStorage.setItem('token', token)
@@ -10,10 +11,16 @@ const useAuthStore = create((set) => ({
     set({ token, user })
   },
 
+  setMyGym: (gym) => {
+    localStorage.setItem('myGym', JSON.stringify(gym))
+    set({ myGym: gym })
+  },
+
   logout: () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
-    set({ token: null, user: null })
+    localStorage.removeItem('myGym')
+    set({ token: null, user: null, myGym: null })
   },
 }))
 

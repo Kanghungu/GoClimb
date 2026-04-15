@@ -1,46 +1,43 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import toast from 'react-hot-toast'
 import api from '../../api/axios'
 import useAuthStore from '../../store/authStore'
+import toast from 'react-hot-toast'
 
 export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
-  const login = useAuthStore((s) => s.login)
+  const { login, setMyGym } = useAuthStore()
   const navigate = useNavigate()
-
-  const getErrorMessage = (err) => {
-    const payload = err.response?.data
-    if (!payload) return 'Login failed.'
-    if (typeof payload.message === 'string') return payload.message
-    if (typeof payload.email === 'string') return payload.email
-    if (typeof payload.password === 'string') return payload.password
-    return 'Login failed.'
-  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-
     try {
       const { data } = await api.post('/auth/login', form)
-
       if (data.role !== 'MANAGER' && data.role !== 'ADMIN') {
-        toast.error('Only manager or admin accounts can sign in.')
+        toast.error('관리자 계정으로만 로그인할 수 있습니다.')
         return
       }
+      login(data.accessToken, { nickname: data.nickname, role: data.role, userId: data.userId })
 
-      login(data.accessToken, {
-        nickname: data.nickname,
-        role: data.role,
-        userId: data.userId,
-      })
+      // MANAGER면 내 지점 정보 가져와서 저장
+      if (data.role === 'MANAGER') {
+        try {
+          const gymRes = await api.get('/me/gym', {
+            headers: { Authorization: `Bearer ${data.accessToken}` }
+          })
+          setMyGym(gymRes.data)
+        } catch {
+          toast.error('배정된 지점이 없습니다. 관리자에게 문의하세요.')
+          return
+        }
+      }
 
-      toast.success(`Welcome, ${data.nickname}`)
+      toast.success(`환영합니다, ${data.nickname}님!`)
       navigate('/')
     } catch (err) {
-      toast.error(getErrorMessage(err))
+      toast.error(err.response?.data?.message || '로그인에 실패했습니다.')
     } finally {
       setLoading(false)
     }
@@ -48,44 +45,42 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-        <div className="mb-8 text-center">
-          <div className="mb-2 text-4xl">Climb</div>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 w-full max-w-sm">
+        <div className="text-center mb-8">
+          <div className="text-4xl mb-2">🧗</div>
           <h1 className="text-2xl font-bold text-gray-900">AppClimb</h1>
-          <p className="mt-1 text-sm text-gray-500">Admin sign in</p>
+          <p className="text-sm text-gray-500 mt-1">관리자 로그인</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">이메일</label>
             <input
               type="email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-              placeholder="admin@appclimb.local"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="admin@example.com"
               required
             />
           </div>
-
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Password</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
             <input
               type="password"
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-              placeholder="Enter your password"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="••••••••"
               required
             />
           </div>
-
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-green-600 py-2.5 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50"
           >
-            {loading ? 'Signing in...' : 'Sign in'}
+            {loading ? '로그인 중...' : '로그인'}
           </button>
         </form>
       </div>
