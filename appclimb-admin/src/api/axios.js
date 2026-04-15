@@ -1,8 +1,12 @@
 import axios from 'axios'
 
-const api = axios.create({
-  baseURL: '/api',
-})
+// 환경변수로 API URL 설정 (Vercel에서 VITE_API_URL 환경변수 설정 필요)
+// 로컬 개발시엔 vite proxy (/api) 사용
+const baseURL = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : '/api'
+
+const api = axios.create({ baseURL })
 
 // 요청마다 토큰 자동 첨부
 api.interceptors.request.use((config) => {
