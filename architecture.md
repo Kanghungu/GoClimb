@@ -6,47 +6,68 @@
 
 ## 1. 기술 스택
 
-| 영역 | 기술 | 배포 |
-|------|------|------|
-| 백엔드 API | Spring Boot 3.x (Java 17) | Render (무료) |
-| 데이터베이스 | PostgreSQL | Supabase (무료) |
+| 영역 | 기술 | 배포 URL |
+|------|------|----------|
+| 백엔드 API | Spring Boot 3.2 (Java 17) | https://goclimb-s8c2.onrender.com |
+| 데이터베이스 | PostgreSQL 17 | Supabase (ap-northeast-2) |
 | 안드로이드 앱 | Kotlin + Jetpack Compose | Google Play (추후) |
-| 관리자 웹 | React + Vite | Vercel (무료) |
+| 관리자 웹 | React + Vite + Tailwind CSS | https://go-climb.vercel.app |
 | 코드 관리 | GitHub | - |
-| 개발 중 터널 | ngrok | 무료 |
+
+> **Render 무료 플랜**: 비활성 15분 후 spin-down. 첫 요청 시 약 30~60초 소요.
+> **DB 연결**: Supabase Session Pooler (IPv4) 사용 — `aws-1-ap-northeast-2.pooler.supabase.com:5432`
 
 ---
 
 ## 2. 시스템 구조
 
 ```
-┌─────────────────┐     ┌─────────────────┐
-│  Android App    │     │  React 관리자웹  │
-│  (Kotlin)       │     │  (Vercel)        │
-└────────┬────────┘     └────────┬────────┘
-         │  HTTPS REST API       │
-         └──────────┬────────────┘
-                    ▼
-         ┌─────────────────────┐
-         │  Spring Boot API    │
-         │  (Render)           │
-         └──────────┬──────────┘
-                    │ JDBC
-                    ▼
-         ┌─────────────────────┐
-         │  PostgreSQL         │
-         │  (Supabase)         │
-         └─────────────────────┘
+┌─────────────────┐     ┌──────────────────────────┐
+│  Android App    │     │  React 관리자 웹 (Vercel) │
+│  (Kotlin)       │     │  go-climb.vercel.app      │
+└────────┬────────┘     └────────────┬─────────────┘
+         │  HTTPS REST API           │
+         └──────────────┬────────────┘
+                        ▼
+           ┌─────────────────────────┐
+           │  Spring Boot API        │
+           │  goclimb-s8c2.onrender  │
+           └──────────┬──────────────┘
+                      │ JDBC (Session Pooler)
+                      ▼
+           ┌─────────────────────────┐
+           │  PostgreSQL (Supabase)  │
+           └─────────────────────────┘
 ```
 
 ---
 
-## 3. ERD (Entity Relationship Diagram)
+## 3. 역할 (Role) 구조
+
+| 역할 | 설명 | 관리자 웹 메뉴 |
+|------|------|--------------|
+| ADMIN | 웹 관리자 | 지점 요청 승인 |
+| MANAGER | 지점 관리자 | 세팅일정 / 이벤트 / 난이도색깔 / 섹터관리 / 직원관리 |
+| USER | 일반 사용자 | 관리자 웹 접근 불가 (앱 전용) |
+
+### 지점 관리자 온보딩 흐름
+
+```
+신청자 → /apply 페이지 (이름/이메일/비번 + 지점정보 입력)
+       → POST /api/auth/apply (계정 생성 + 지점 신청 동시 처리)
+       → ADMIN이 관리자 웹에서 승인
+       → 자동으로: Gym 생성 + 신청자 MANAGER 역할 부여 + GymManager 연결
+       → 신청자가 관리자 웹 로그인 가능
+```
+
+---
+
+## 4. ERD
 
 ```
 ┌──────────────┐       ┌──────────────────┐       ┌──────────────┐
-│   users      │       │  user_favorite   │       │    gyms      │
-│──────────────│       │  _gyms           │       │──────────────│
+│   users      │       │ user_favorite    │       │    gyms      │
+│──────────────│       │ _gyms            │       │──────────────│
 │ id (PK)      │◄──────│──────────────────│──────►│ id (PK)      │
 │ email        │       │ id (PK)          │       │ name         │
 │ password     │       │ user_id (FK)     │       │ address      │
@@ -54,51 +75,56 @@
 │ role         │       │ created_at       │       │ created_at   │
 │ created_at   │       └──────────────────┘       └──────┬───────┘
 └──────┬───────┘                                         │
-       │                                                 │
-       │  ┌───────────────────┐              ┌───────────┴──────────┐
-       │  │  climbing_records │              │      sectors         │
-       │  │───────────────────│              │──────────────────────│
-       └─►│ id (PK)           │              │ id (PK)              │
-          │ user_id (FK)      │              │ gym_id (FK)          │
-          │ gym_id (FK)       │              │ name (예: A존, B존)   │
-          │ record_date       │              │ description          │
-          │ created_at        │              └───────────┬──────────┘
-          └──────┬────────────┘                          │
-                 │                           ┌───────────┴──────────┐
-                 │                           │  setting_schedules   │
-  ┌──────────────┴──────┐                   │──────────────────────│
-  │  record_entries     │                   │ id (PK)              │
-  │─────────────────────│                   │ gym_id (FK)          │
-  │ id (PK)             │                   │ sector_id (FK)       │
-  │ record_id (FK)      │                   │ setting_date         │
-  │ color_id (FK)       │                   │ description          │
-  │ planned_count       │                   │ created_at           │
-  │ completed_count     │                   └──────────────────────┘
-  └─────────────────────┘
-  
-  ┌──────────────────────┐       ┌──────────────────────┐
-  │  difficulty_colors   │       │       events         │
-  │──────────────────────│       │──────────────────────│
-  │ id (PK)              │       │ id (PK)              │
-  │ gym_id (FK)          │       │ gym_id (FK)          │
-  │ color_name (예:노랑) │       │ title                │
-  │ color_hex (#FFFF00)  │       │ description          │
-  │ level_order (순서)   │       │ start_date           │
-  └──────────────────────┘       │ end_date             │
-                                  │ created_at           │
-  ┌──────────────────────┐       └──────────────────────┘
-  │   gym_managers       │
+       │                                        ┌────────┴──────────────────────┐
+       │  ┌────────────────────┐                │                               │
+       │  │  gym_join_requests │      ┌─────────┴──────┐          ┌────────────┴─────┐
+       └─►│────────────────────│      │    sectors      │          │   gym_managers   │
+          │ id (PK)            │      │────────────────│          │──────────────────│
+          │ requester_id (FK)  │      │ id (PK)        │          │ id (PK)          │
+          │ gym_name           │      │ gym_id (FK)    │          │ user_id (FK)     │
+          │ gym_address        │      │ name           │          │ gym_id (FK)      │
+          │ gym_description    │      │ description    │          │ created_at       │
+          │ status             │      └────────┬───────┘          └──────────────────┘
+          │ created_at         │               │
+          │ reviewed_at        │      ┌────────┴───────────┐
+          └────────────────────┘      │  setting_schedules │
+                                      │────────────────────│
+  ┌─────────────────┐                 │ id (PK)            │
+  │   gym_staff     │                 │ gym_id (FK)        │
+  │─────────────────│                 │ sector_id (FK)     │
+  │ id (PK)         │                 │ setting_date       │
+  │ gym_id (FK)─────┼────────────────►│ description        │
+  │ name            │                 │ created_at         │
+  │ staff_role      │                 └────────────────────┘
+  │ note            │
+  │ created_at      │      ┌──────────────────┐       ┌──────────────────┐
+  └─────────────────┘      │ difficulty_colors│       │     events       │
+                            │──────────────────│       │──────────────────│
+                            │ id (PK)          │       │ id (PK)          │
+                            │ gym_id (FK)      │       │ gym_id (FK)      │
+                            │ color_name       │       │ title            │
+                            │ color_hex        │       │ description      │
+                            │ level_order      │       │ start_date       │
+                            └──────────────────┘       │ end_date         │
+                                                        │ created_at       │
+  ┌──────────────────────┐                             └──────────────────┘
+  │  climbing_records    │
   │──────────────────────│
   │ id (PK)              │
-  │ user_id (FK)         │
-  │ gym_id (FK)          │
-  │ created_at           │
-  └──────────────────────┘
+  │ user_id (FK)         │       ┌──────────────────┐
+  │ gym_id (FK)          │──────►│  record_entries  │
+  │ record_date          │       │──────────────────│
+  │ created_at           │       │ id (PK)          │
+  └──────────────────────┘       │ record_id (FK)   │
+                                  │ color_id (FK)    │
+                                  │ planned_count    │
+                                  │ completed_count  │
+                                  └──────────────────┘
 ```
 
 ---
 
-## 4. 테이블 상세 설명
+## 5. 테이블 상세
 
 ### users
 | 컬럼 | 타입 | 설명 |
@@ -107,10 +133,32 @@
 | email | VARCHAR(100) UNIQUE | 로그인 이메일 |
 | password | VARCHAR(255) | bcrypt 암호화 |
 | nickname | VARCHAR(50) | 닉네임 |
-| role | VARCHAR(20) | USER / MANAGER / ADMIN |
+| role | VARCHAR(20) | `USER` / `MANAGER` / `ADMIN` |
 | created_at | TIMESTAMP | 가입일 |
 
-### gyms (클라이밍 지점)
+### gym_join_requests (지점 가입 신청)
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| id | BIGSERIAL PK | 기본키 |
+| requester_id | BIGINT FK | 신청한 사용자 |
+| gym_name | VARCHAR(100) | 신청 지점명 |
+| gym_address | VARCHAR(255) | 주소 |
+| gym_description | TEXT | 지점 소개 |
+| status | VARCHAR(20) | `PENDING` / `APPROVED` / `REJECTED` |
+| created_at | TIMESTAMP | 신청일 |
+| reviewed_at | TIMESTAMP | 처리일 |
+
+### gym_staff (직원 역할 — DB 기록용, 별도 로그인 없음)
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| id | BIGSERIAL PK | 기본키 |
+| gym_id | BIGINT FK | 소속 지점 |
+| name | VARCHAR(50) | 직원 이름 |
+| staff_role | VARCHAR(20) | `SETTER` / `TEACHER` / `FRONT` / `MANAGER_STAFF` |
+| note | VARCHAR(255) | 메모 (예: 월수금 근무) |
+| created_at | TIMESTAMP | 등록일 |
+
+### gyms
 | 컬럼 | 타입 | 설명 |
 |------|------|------|
 | id | BIGSERIAL PK | 기본키 |
@@ -119,164 +167,124 @@
 | description | TEXT | 지점 소개 |
 | created_at | TIMESTAMP | 등록일 |
 
-### sectors (섹터)
+### gym_managers
 | 컬럼 | 타입 | 설명 |
 |------|------|------|
 | id | BIGSERIAL PK | 기본키 |
-| gym_id | BIGINT FK | 소속 지점 |
-| name | VARCHAR(50) | 섹터명 (A존, B존 등) |
-| description | TEXT | 섹터 설명 |
+| user_id | BIGINT FK | 관리자 사용자 |
+| gym_id | BIGINT FK | 담당 지점 |
+| created_at | TIMESTAMP | 배정일 |
 
-### difficulty_colors (난이도 색깔 - 지점별 커스텀)
-| 컬럼 | 타입 | 설명 |
-|------|------|------|
-| id | BIGSERIAL PK | 기본키 |
-| gym_id | BIGINT FK | 소속 지점 |
-| color_name | VARCHAR(30) | 색깔명 (노랑, 파랑 등) |
-| color_hex | VARCHAR(7) | HEX코드 (#FFFF00) |
-| level_order | INT | 난이도 순서 (1=쉬움) |
+### sectors, difficulty_colors, setting_schedules, events
+→ 모두 `gym_id` FK로 지점에 귀속. MANAGER만 등록/수정/삭제 가능.
 
-### setting_schedules (세팅 일정)
-| 컬럼 | 타입 | 설명 |
-|------|------|------|
-| id | BIGSERIAL PK | 기본키 |
-| gym_id | BIGINT FK | 소속 지점 |
-| sector_id | BIGINT FK | 대상 섹터 |
-| setting_date | DATE | 세팅 변경 날짜 |
-| description | TEXT | 메모 |
-| created_at | TIMESTAMP | 등록일 |
-
-### climbing_records (운동 기록 - 날짜별 세션)
-| 컬럼 | 타입 | 설명 |
-|------|------|------|
-| id | BIGSERIAL PK | 기본키 |
-| user_id | BIGINT FK | 사용자 |
-| gym_id | BIGINT FK | 방문 지점 |
-| record_date | DATE | 운동 날짜 |
-| created_at | TIMESTAMP | 등록일 |
-
-### record_entries (난이도별 기록)
-| 컬럼 | 타입 | 설명 |
-|------|------|------|
-| id | BIGSERIAL PK | 기본키 |
-| record_id | BIGINT FK | 소속 운동기록 |
-| color_id | BIGINT FK | 난이도 색깔 |
-| planned_count | INT | 목표 개수 |
-| completed_count | INT | 완료 개수 |
-
-### events (지점 이벤트)
-| 컬럼 | 타입 | 설명 |
-|------|------|------|
-| id | BIGSERIAL PK | 기본키 |
-| gym_id | BIGINT FK | 소속 지점 |
-| title | VARCHAR(100) | 이벤트 제목 |
-| description | TEXT | 이벤트 내용 |
-| start_date | DATE | 시작일 |
-| end_date | DATE | 종료일 |
-| created_at | TIMESTAMP | 등록일 |
+### climbing_records / record_entries
+→ 앱 사용자(USER)의 운동 기록. 날짜별 세션 + 난이도별 세부 기록.
 
 ---
 
-## 5. API 명세
+## 6. API 명세
 
-### 인증 (Auth)
+### 인증 (Auth) — `/api/auth/**` 전체 공개
+| Method | URL | 설명 |
+|--------|-----|------|
+| POST | /api/auth/register | 일반 회원가입 (USER 역할) |
+| POST | /api/auth/login | 로그인 (JWT 반환) |
+| POST | /api/auth/apply | **지점 가입 신청** — 계정 생성 + 지점 신청 동시 처리 |
+
+### 지점 가입 신청 (Gym Join Request)
 | Method | URL | 설명 | 권한 |
 |--------|-----|------|------|
-| POST | /api/auth/register | 회원가입 | 누구나 |
-| POST | /api/auth/login | 로그인 (JWT 반환) | 누구나 |
-| POST | /api/auth/refresh | 토큰 갱신 | 누구나 |
+| POST | /api/gym-join-requests | 지점 신청 제출 | 인증된 사용자 |
+| GET | /api/admin/gym-join-requests | 전체 신청 목록 | ADMIN |
+| GET | /api/admin/gym-join-requests/pending | 대기 중 목록 | ADMIN |
+| POST | /api/admin/gym-join-requests/{id}/approve | 신청 승인 | ADMIN |
+| POST | /api/admin/gym-join-requests/{id}/reject | 신청 거절 | ADMIN |
+
+> 승인 시 자동 처리: Gym 생성 + 신청자 role → MANAGER + GymManager 연결
 
 ### 지점 (Gym)
 | Method | URL | 설명 | 권한 |
 |--------|-----|------|------|
 | GET | /api/gyms | 전체 지점 목록 | 누구나 |
 | GET | /api/gyms/{id} | 지점 상세 | 누구나 |
-| POST | /api/gyms | 지점 등록 | ADMIN |
-| PUT | /api/gyms/{id} | 지점 수정 | MANAGER |
+| POST | /api/gyms | 지점 직접 등록 | ADMIN |
+| PUT | /api/gyms/{id} | 지점 수정 | MANAGER / ADMIN |
+| DELETE | /api/gyms/{id} | 지점 삭제 | ADMIN |
 
-### 즐겨찾기 (Favorite)
+### 직원 관리 (Gym Staff)
 | Method | URL | 설명 | 권한 |
 |--------|-----|------|------|
-| GET | /api/favorites | 내 즐겨찾기 목록 | USER |
-| POST | /api/favorites/{gymId} | 즐겨찾기 추가 | USER |
-| DELETE | /api/favorites/{gymId} | 즐겨찾기 삭제 | USER |
+| GET | /api/gyms/{gymId}/staff | 직원 목록 | MANAGER / ADMIN |
+| POST | /api/gyms/{gymId}/staff | 직원 등록 | MANAGER |
+| PUT | /api/gyms/{gymId}/staff/{id} | 직원 정보 수정 | MANAGER |
+| DELETE | /api/gyms/{gymId}/staff/{id} | 직원 삭제 | MANAGER |
 
 ### 세팅 일정 (Setting Schedule)
 | Method | URL | 설명 | 권한 |
 |--------|-----|------|------|
-| GET | /api/gyms/{gymId}/schedules | 지점 세팅 일정 목록 | 누구나 |
-| GET | /api/gyms/{gymId}/schedules?month=2025-06 | 월별 캘린더 조회 | 누구나 |
-| POST | /api/gyms/{gymId}/schedules | 세팅 일정 등록 | MANAGER |
-| PUT | /api/gyms/{gymId}/schedules/{id} | 세팅 일정 수정 | MANAGER |
-| DELETE | /api/gyms/{gymId}/schedules/{id} | 세팅 일정 삭제 | MANAGER |
+| GET | /api/gyms/{gymId}/schedules | 세팅 일정 목록 | 누구나 |
+| GET | /api/gyms/{gymId}/schedules?month=2025-06 | 월별 조회 | 누구나 |
+| POST | /api/gyms/{gymId}/schedules | 등록 | MANAGER |
+| PUT | /api/gyms/{gymId}/schedules/{id} | 수정 | MANAGER |
+| DELETE | /api/gyms/{gymId}/schedules/{id} | 삭제 | MANAGER |
 
-### 운동 기록 (Climbing Record)
+### 이벤트 / 난이도 색깔 / 섹터
 | Method | URL | 설명 | 권한 |
 |--------|-----|------|------|
-| GET | /api/records | 내 운동기록 목록 | USER |
-| GET | /api/records?month=2025-06 | 월별 기록 조회 | USER |
-| POST | /api/records | 운동기록 등록 | USER |
-| PUT | /api/records/{id} | 운동기록 수정 | USER |
-| DELETE | /api/records/{id} | 운동기록 삭제 | USER |
+| GET/POST/PUT/DELETE | /api/gyms/{gymId}/events | 이벤트 | 조회:누구나 / 나머지:MANAGER |
+| GET/POST/PUT/DELETE | /api/gyms/{gymId}/colors | 난이도 색깔 | 조회:누구나 / 나머지:MANAGER |
+| GET/POST/PUT/DELETE | /api/gyms/{gymId}/sectors | 섹터 | 조회:누구나 / 나머지:MANAGER |
 
-### 이벤트 (Event)
+### 운동 기록 / 즐겨찾기 (앱 전용)
 | Method | URL | 설명 | 권한 |
 |--------|-----|------|------|
-| GET | /api/gyms/{gymId}/events | 지점 이벤트 목록 | 누구나 |
-| POST | /api/gyms/{gymId}/events | 이벤트 등록 | MANAGER |
-| PUT | /api/gyms/{gymId}/events/{id} | 이벤트 수정 | MANAGER |
-| DELETE | /api/gyms/{gymId}/events/{id} | 이벤트 삭제 | MANAGER |
-
-### 난이도 색깔 (Difficulty Color)
-| Method | URL | 설명 | 권한 |
-|--------|-----|------|------|
-| GET | /api/gyms/{gymId}/colors | 지점 난이도 목록 | 누구나 |
-| POST | /api/gyms/{gymId}/colors | 난이도 등록 | MANAGER |
-| PUT | /api/gyms/{gymId}/colors/{id} | 난이도 수정 | MANAGER |
-| DELETE | /api/gyms/{gymId}/colors/{id} | 난이도 삭제 | MANAGER |
+| GET/POST/PUT/DELETE | /api/records | 운동 기록 | USER |
+| GET/POST/DELETE | /api/favorites | 즐겨찾기 | USER |
+| GET | /api/me/gym | 내 담당 지점 조회 | MANAGER |
 
 ---
 
-## 6. 개발 순서 (권장)
+## 7. JWT 토큰
+
+- **Access Token**: 유효기간 1시간, `Authorization: Bearer {token}` 헤더로 전달
+- Payload: `userId`, `email`, `role`
+- 별도 Refresh Token 없음 (현재 구현 기준)
+
+---
+
+## 8. 개발 현황
 
 ```
-Phase 1 - 백엔드 기반
-  ├── Spring Boot 프로젝트 세팅
-  ├── DB 연결 (Supabase PostgreSQL)
+✅ Phase 1 - 백엔드 기반
+  ├── Spring Boot 프로젝트 + Docker
+  ├── DB 연결 (Supabase PostgreSQL, Session Pooler)
   ├── User 엔티티 + 회원가입/로그인 (JWT)
   └── Gym, Sector 엔티티 + 기본 CRUD
 
-Phase 2 - 핵심 기능
-  ├── 세팅 일정 등록/조회 API
-  ├── 운동 기록 등록/조회 API
-  └── 즐겨찾기 API
+✅ Phase 2 - 핵심 기능 API
+  ├── 세팅 일정 / 이벤트 / 난이도 색깔 / 섹터 CRUD
+  ├── 운동 기록 / 즐겨찾기 API
+  └── GymManager 배정
 
-Phase 3 - 안드로이드 앱
-  ├── 로그인/회원가입 화면
+✅ Phase 3 - 관리자 웹 (React)
+  ├── 로그인 / 역할별 분기
+  ├── 웹관리자: 지점 가입 신청 승인/거절
+  ├── 지점관리자: 세팅일정, 이벤트, 난이도, 섹터, 직원관리
+  └── 신규 지점 신청 페이지 (/apply, 공개)
+
+✅ Phase 4 - 배포
+  ├── Render (Spring Boot Docker)
+  ├── Supabase (PostgreSQL)
+  └── Vercel (React)
+
+🔲 Phase 5 - 안드로이드 앱 (예정)
+  ├── 로그인/회원가입
   ├── 즐겨찾기 지점 목록
   ├── 캘린더 (세팅 일정 표시)
   └── 운동 기록 입력/조회
-
-Phase 4 - 관리자 웹 (React)
-  ├── 로그인
-  ├── 세팅 일정 관리
-  ├── 이벤트 관리
-  └── 섹터/난이도 관리
-
-Phase 5 - 배포
-  ├── Render (Spring Boot)
-  ├── Supabase (PostgreSQL)
-  └── Vercel (React)
 ```
 
 ---
 
-## 7. JWT 토큰 전략
-
-- **Access Token**: 유효기간 1시간, Authorization 헤더로 전달
-- **Refresh Token**: 유효기간 30일, DB 저장
-- 앱/웹 모두 동일한 토큰 방식 사용
-
----
-
-*문서 최초 작성: 2026-04-15*
+*최초 작성: 2026-04-15 | 최종 수정: 2026-04-16*
