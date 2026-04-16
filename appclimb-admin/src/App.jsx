@@ -7,6 +7,7 @@ import ManagerLayout from './components/ManagerLayout'
 
 // 공통
 import LoginPage from './pages/auth/LoginPage'
+import ApplyPage from './pages/auth/ApplyPage'
 
 // ADMIN 페이지
 import GymJoinRequestPage from './pages/admin/GymJoinRequestPage'
@@ -61,6 +62,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/apply" element={<ApplyPage />} />
       <Route path="/*" element={<PrivateRoute><RoleRouter /></PrivateRoute>} />
     </Routes>
   )

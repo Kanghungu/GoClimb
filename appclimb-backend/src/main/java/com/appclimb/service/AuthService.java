@@ -1,9 +1,12 @@
 package com.appclimb.service;
 
+import com.appclimb.domain.GymJoinRequest;
 import com.appclimb.domain.User;
+import com.appclimb.dto.request.GymApplyRequest;
 import com.appclimb.dto.request.LoginRequest;
 import com.appclimb.dto.request.RegisterRequest;
 import com.appclimb.dto.response.AuthResponse;
+import com.appclimb.repository.GymJoinRequestRepository;
 import com.appclimb.repository.UserRepository;
 import com.appclimb.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +21,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final GymJoinRequestRepository gymJoinRequestRepository;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -42,6 +46,35 @@ public class AuthService {
                 .nickname(saved.getNickname())
                 .role(saved.getRole().name())
                 .build();
+    }
+
+    /**
+     * 지점 가입 신청: 계정 생성 + GymJoinRequest 생성을 하나의 트랜잭션으로 처리
+     */
+    @Transactional
+    public void applyWithGym(GymApplyRequest request) {
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
+        }
+
+        User user = User.builder()
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .nickname(request.getNickname())
+                .role(User.Role.USER)
+                .build();
+
+        User saved = userRepository.save(user);
+
+        GymJoinRequest joinRequest = GymJoinRequest.builder()
+                .requester(saved)
+                .gymName(request.getGymName())
+                .gymAddress(request.getGymAddress())
+                .gymDescription(request.getGymDescription())
+                .status(GymJoinRequest.Status.PENDING)
+                .build();
+
+        gymJoinRequestRepository.save(joinRequest);
     }
 
     @Transactional(readOnly = true)

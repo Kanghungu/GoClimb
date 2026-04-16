@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import api from '../../api/axios'
 import useAuthStore from '../../store/authStore'
 import toast from 'react-hot-toast'
@@ -83,6 +83,15 @@ export default function LoginPage() {
             {loading ? '로그인 중...' : '로그인'}
           </button>
         </form>
+        <div className="mt-5 pt-5 border-t border-gray-100 text-center">
+          <p className="text-xs text-gray-400 mb-2">지점 등록을 원하시나요?</p>
+          <Link
+            to="/apply"
+            className="inline-block w-full border border-green-600 text-green-600 hover:bg-green-50 font-medium py-2.5 rounded-lg text-sm transition-colors"
+          >
+            지점 가입 신청하기
+          </Link>
+        </div>
       </div>
     </div>
   )
