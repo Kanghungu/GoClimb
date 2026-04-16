@@ -9,13 +9,7 @@ import ManagerLayout from './components/ManagerLayout'
 import LoginPage from './pages/auth/LoginPage'
 
 // ADMIN 페이지
-import DashboardPage from './pages/DashboardPage'
-import GymPage from './pages/gym/GymPage'
-import SchedulePage from './pages/schedule/SchedulePage'
-import EventPage from './pages/event/EventPage'
-import ColorPage from './pages/color/ColorPage'
-import SectorPage from './pages/sector/SectorPage'
-import ManagerAssignPage from './pages/admin/ManagerAssignPage'
+import GymJoinRequestPage from './pages/admin/GymJoinRequestPage'
 
 // MANAGER 페이지
 import ManagerDashboard from './pages/manager/ManagerDashboard'
@@ -23,6 +17,7 @@ import ManagerSchedulePage from './pages/manager/ManagerSchedulePage'
 import ManagerEventPage from './pages/manager/ManagerEventPage'
 import ManagerColorPage from './pages/manager/ManagerColorPage'
 import ManagerSectorPage from './pages/manager/ManagerSectorPage'
+import ManagerStaffPage from './pages/manager/ManagerStaffPage'
 
 function PrivateRoute({ children }) {
   const token = useAuthStore((s) => s.token)
@@ -36,13 +31,9 @@ function RoleRouter() {
     return (
       <Layout>
         <Routes>
-          <Route index element={<DashboardPage />} />
-          <Route path="gyms" element={<GymPage />} />
-          <Route path="schedules" element={<SchedulePage />} />
-          <Route path="events" element={<EventPage />} />
-          <Route path="colors" element={<ColorPage />} />
-          <Route path="sectors" element={<SectorPage />} />
-          <Route path="managers" element={<ManagerAssignPage />} />
+          <Route index element={<Navigate to="/requests" replace />} />
+          <Route path="requests" element={<GymJoinRequestPage />} />
+          <Route path="*" element={<Navigate to="/requests" replace />} />
         </Routes>
       </Layout>
     )
@@ -57,6 +48,7 @@ function RoleRouter() {
           <Route path="events" element={<ManagerEventPage />} />
           <Route path="colors" element={<ManagerColorPage />} />
           <Route path="sectors" element={<ManagerSectorPage />} />
+          <Route path="staff" element={<ManagerStaffPage />} />
         </Routes>
       </ManagerLayout>
     )

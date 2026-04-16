@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Calendar, Zap, Tag, Grid, Home, LogOut } from 'lucide-react'
+import { Calendar, Zap, Tag, Grid, Home, LogOut, Users } from 'lucide-react'
 import useAuthStore from '../store/authStore'
 import toast from 'react-hot-toast'
 
@@ -9,6 +9,7 @@ const navItems = [
   { to: '/events', label: '이벤트', icon: Zap },
   { to: '/colors', label: '난이도 색깔', icon: Tag },
   { to: '/sectors', label: '섹터 관리', icon: Grid },
+  { to: '/staff', label: '직원 관리', icon: Users },
 ]
 
 export default function ManagerLayout({ children }) {

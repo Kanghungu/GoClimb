@@ -1,16 +1,10 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Calendar, Zap, Tag, Grid, Home, LogOut, Mountain, Users } from 'lucide-react'
+import { ClipboardCheck, LogOut } from 'lucide-react'
 import useAuthStore from '../store/authStore'
 import toast from 'react-hot-toast'
 
 const navItems = [
-  { to: '/', label: '대시보드', icon: Home, end: true },
-  { to: '/gyms', label: '지점 관리', icon: Mountain },
-  { to: '/schedules', label: '세팅 일정', icon: Calendar },
-  { to: '/events', label: '이벤트', icon: Zap },
-  { to: '/colors', label: '난이도 색깔', icon: Tag },
-  { to: '/sectors', label: '섹터 관리', icon: Grid },
-  { to: '/managers', label: '매니저 배정', icon: Users },
+  { to: '/requests', label: '지점 요청 승인', icon: ClipboardCheck },
 ]
 
 export default function Layout({ children }) {
@@ -30,7 +24,7 @@ export default function Layout({ children }) {
       <aside className="w-60 bg-white border-r border-gray-200 flex flex-col">
         <div className="p-5 border-b border-gray-200">
           <h1 className="text-xl font-bold text-green-600">🧗 AppClimb</h1>
-          <p className="text-xs text-gray-500 mt-1">관리자 페이지</p>
+          <p className="text-xs text-gray-500 mt-1">웹 관리자</p>
         </div>
 
         <nav className="flex-1 p-3 space-y-1">

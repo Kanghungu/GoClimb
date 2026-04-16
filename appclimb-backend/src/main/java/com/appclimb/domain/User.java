@@ -38,6 +38,10 @@ public class User {
         if (this.role == null) this.role = Role.USER;
     }
 
+    public void changeRole(Role newRole) {
+        this.role = newRole;
+    }
+
     public enum Role {
         USER, MANAGER, ADMIN
     }
