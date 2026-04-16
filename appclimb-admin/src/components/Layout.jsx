@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { Calendar, Zap, Tag, Grid, Home, LogOut, Mountain, Users } from 'lucide-react'
 import useAuthStore from '../store/authStore'
 import toast from 'react-hot-toast'
@@ -13,7 +13,7 @@ const navItems = [
   { to: '/managers', label: '매니저 배정', icon: Users },
 ]
 
-export default function Layout() {
+export default function Layout({ children }) {
   const logout = useAuthStore((s) => s.logout)
   const user = useAuthStore((s) => s.user)
   const navigate = useNavigate()
@@ -68,7 +68,7 @@ export default function Layout() {
       {/* 메인 콘텐츠 */}
       <main className="flex-1 overflow-y-auto">
         <div className="p-8">
-          <Outlet />
+          {children}
         </div>
       </main>
     </div>

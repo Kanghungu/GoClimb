@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { Calendar, Zap, Tag, Grid, Home, LogOut } from 'lucide-react'
 import useAuthStore from '../store/authStore'
 import toast from 'react-hot-toast'
@@ -11,7 +11,7 @@ const navItems = [
   { to: '/sectors', label: '섹터 관리', icon: Grid },
 ]
 
-export default function ManagerLayout() {
+export default function ManagerLayout({ children }) {
   const { logout, user, myGym } = useAuthStore()
   const navigate = useNavigate()
 
@@ -62,7 +62,7 @@ export default function ManagerLayout() {
 
       <main className="flex-1 overflow-y-auto">
         <div className="p-8">
-          <Outlet />
+          {children}
         </div>
       </main>
     </div>
