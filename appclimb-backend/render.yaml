@@ -7,10 +7,12 @@ services:
     healthCheckPath: /api/gyms
     envVars:
       - key: SPRING_DATASOURCE_URL
-        value: jdbc:postgresql://db.ngfuwuiewhjubridtqnt.supabase.co:5432/postgres?sslmode=require&ssl=true
+        value: jdbc:postgresql://aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres?sslmode=require
       - key: SPRING_DATASOURCE_USERNAME
-        value: postgres
+        value: postgres.ngfuwuiewhjubridtqnt
       - key: SPRING_DATASOURCE_PASSWORD
         sync: false
       - key: JWT_SECRET
         sync: false
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
