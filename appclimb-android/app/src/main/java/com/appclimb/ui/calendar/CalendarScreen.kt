@@ -119,6 +119,7 @@ fun CalendarScreen(viewModel: CalendarViewModel = hiltViewModel()) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GymSelector(
     gyms: List<Pair<Long, String>>,

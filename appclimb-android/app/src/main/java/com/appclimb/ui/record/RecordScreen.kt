@@ -129,11 +129,7 @@ fun RecordCard(record: ClimbingRecordResponse, onDelete: () -> Unit) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // 색깔 표시
-                        val hexColor = entry.colorHex?.removePrefix("#")
-                        val color = try {
-                            if (hexColor != null) Color(android.graphics.Color.parseColor("#$hexColor"))
-                            else MaterialTheme.colorScheme.primary
-                        } catch (e: Exception) { MaterialTheme.colorScheme.primary }
+                        val color = parseHexColor(entry.colorHex) ?: MaterialTheme.colorScheme.primary
 
                         Box(
                             modifier = Modifier.size(12.dp).clip(CircleShape).background(color)
@@ -238,9 +234,7 @@ fun AddRecordBottomSheet(
 
                 state.colors.forEach { color ->
                     val entry = state.entries[color.id] ?: Pair(0, 0)
-                    val hexColor = try {
-                        Color(android.graphics.Color.parseColor(color.colorHex))
-                    } catch (e: Exception) { MaterialTheme.colorScheme.primary }
+                    val hexColor = parseHexColor(color.colorHex) ?: MaterialTheme.colorScheme.primary
 
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -316,5 +310,16 @@ fun NumberInput(label: String, value: Int, onChange: (Int) -> Unit) {
         ) {
             Icon(Icons.Default.Add, contentDescription = "증가", modifier = Modifier.size(16.dp))
         }
+    }
+}
+
+private fun parseHexColor(raw: String?): Color? {
+    if (raw.isNullOrBlank()) return null
+
+    val normalized = if (raw.startsWith("#")) raw else "#$raw"
+    return try {
+        Color(android.graphics.Color.parseColor(normalized))
+    } catch (_: IllegalArgumentException) {
+        null
     }
 }

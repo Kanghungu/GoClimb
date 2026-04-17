@@ -3,9 +3,6 @@ package com.appclimb
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.viewModels
-import androidx.compose.runtime.*
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.appclimb.navigation.AppNavigation
 import com.appclimb.ui.theme.AppClimbTheme
 import com.appclimb.util.TokenManager

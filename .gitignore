@@ -4,3 +4,6 @@ build/
 dist/
 .run/
 *.log
+*.hprof
+local.properties
+.idea/
