@@ -10,6 +10,8 @@ class GymRepository @Inject constructor(private val api: ApiService) {
 
     suspend fun getAllGyms(): Result<List<GymResponse>> = runCatching { api.getAllGyms() }
 
+    suspend fun getGym(gymId: Long): Result<GymResponse> = runCatching { api.getGym(gymId) }
+
     suspend fun getMyFavorites(): Result<List<FavoriteResponse>> = runCatching { api.getMyFavorites() }
 
     suspend fun addFavorite(gymId: Long): Result<Unit> = runCatching { api.addFavorite(gymId) }

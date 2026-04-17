@@ -2,7 +2,7 @@ package com.appclimb.ui.calendar
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.appclimb.data.model.GymResponse
+import com.appclimb.data.model.GymSummary
 import com.appclimb.data.model.SettingScheduleResponse
 import com.appclimb.data.repository.GymRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,9 +16,10 @@ import javax.inject.Inject
 data class CalendarUiState(
     val isLoading: Boolean = false,
     val currentMonth: YearMonth = YearMonth.now(),
-    val gyms: List<GymResponse> = emptyList(),
+    val favoriteGyms: List<GymSummary> = emptyList(),   // 즐겨찾기 지점만
     val selectedGymId: Long? = null,
     val schedules: List<SettingScheduleResponse> = emptyList(),
+    val noFavorites: Boolean = false,   // 즐겨찾기가 없을 때 안내
     val error: String? = null
 )
 
@@ -31,16 +32,30 @@ class CalendarViewModel @Inject constructor(
     val uiState = _uiState.asStateFlow()
 
     init {
-        loadGyms()
+        loadFavoriteGyms()
     }
 
-    private fun loadGyms() {
+    fun loadFavoriteGyms() {
         viewModelScope.launch {
-            gymRepository.getAllGyms()
-                .onSuccess { gyms ->
-                    _uiState.value = _uiState.value.copy(gyms = gyms)
-                    // 첫 번째 지점 자동 선택
-                    gyms.firstOrNull()?.let { selectGym(it.id) }
+            gymRepository.getMyFavorites()
+                .onSuccess { favorites ->
+                    val summaries = favorites.map { GymSummary(it.gymId, it.gymName) }
+                    if (summaries.isEmpty()) {
+                        _uiState.value = _uiState.value.copy(
+                            favoriteGyms = emptyList(),
+                            noFavorites = true
+                        )
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            favoriteGyms = summaries,
+                            noFavorites = false
+                        )
+                        // 첫 번째 즐겨찾기 지점 자동 선택
+                        summaries.firstOrNull()?.let { selectGym(it.id) }
+                    }
+                }
+                .onFailure {
+                    _uiState.value = _uiState.value.copy(error = it.message)
                 }
         }
     }

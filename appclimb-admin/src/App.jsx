@@ -10,6 +10,7 @@ import LoginPage from './pages/auth/LoginPage'
 import ApplyPage from './pages/auth/ApplyPage'
 
 // ADMIN 페이지
+import AdminDashboard from './pages/admin/AdminDashboard'
 import GymJoinRequestPage from './pages/admin/GymJoinRequestPage'
 
 // MANAGER 페이지
@@ -32,9 +33,9 @@ function RoleRouter() {
     return (
       <Layout>
         <Routes>
-          <Route index element={<Navigate to="/requests" replace />} />
+          <Route index element={<AdminDashboard />} />
           <Route path="requests" element={<GymJoinRequestPage />} />
-          <Route path="*" element={<Navigate to="/requests" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
     )

@@ -14,6 +14,9 @@ class RecordRepository @Inject constructor(private val api: ApiService) {
     suspend fun createRecord(request: ClimbingRecordRequest): Result<ClimbingRecordResponse> =
         runCatching { api.createRecord(request) }
 
+    suspend fun updateRecord(recordId: Long, request: RecordUpdateRequest): Result<ClimbingRecordResponse> =
+        runCatching { api.updateRecord(recordId, request) }
+
     suspend fun deleteRecord(recordId: Long): Result<Unit> =
         runCatching { api.deleteRecord(recordId) }
 }

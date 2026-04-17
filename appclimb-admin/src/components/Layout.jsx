@@ -1,9 +1,10 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { ClipboardCheck, LogOut } from 'lucide-react'
+import { LayoutDashboard, ClipboardCheck, LogOut } from 'lucide-react'
 import useAuthStore from '../store/authStore'
 import toast from 'react-hot-toast'
 
 const navItems = [
+  { to: '/', label: '대시보드', icon: LayoutDashboard, end: true },
   { to: '/requests', label: '지점 요청 승인', icon: ClipboardCheck },
 ]
 

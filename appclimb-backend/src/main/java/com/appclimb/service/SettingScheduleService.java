@@ -8,6 +8,7 @@ import com.appclimb.dto.response.SettingScheduleResponse;
 import com.appclimb.repository.GymRepository;
 import com.appclimb.repository.SectorRepository;
 import com.appclimb.repository.SettingScheduleRepository;
+import com.appclimb.repository.UserFavoriteGymRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +25,8 @@ public class SettingScheduleService {
     private final SettingScheduleRepository scheduleRepository;
     private final GymRepository gymRepository;
     private final SectorRepository sectorRepository;
+    private final UserFavoriteGymRepository userFavoriteGymRepository;
+    private final FcmService fcmService;
 
     @Transactional(readOnly = true)
     public List<SettingScheduleResponse> getSchedules(Long gymId, String month) {
@@ -55,7 +59,22 @@ public class SettingScheduleService {
                 .description(request.getDescription())
                 .build();
 
-        return SettingScheduleResponse.from(scheduleRepository.save(schedule));
+        SettingSchedule saved = scheduleRepository.save(schedule);
+
+        // 해당 지점을 즐겨찾기한 사용자에게 푸시 알림 발송
+        var allFavorites = userFavoriteGymRepository.findByGymId(gymId);
+        List<Long> userIds = allFavorites.stream()
+                .map(fav -> fav.getUser().getId())
+                .collect(Collectors.toList());
+
+        if (!userIds.isEmpty()) {
+            String sectorName = sector != null ? sector.getName() : "전체";
+            String title = "세팅 완료!";
+            String body = sectorName + " 새 세팅이 등록되었습니다";
+            fcmService.sendToUsers(userIds, title, body);
+        }
+
+        return SettingScheduleResponse.from(saved);
     }
 
     @Transactional

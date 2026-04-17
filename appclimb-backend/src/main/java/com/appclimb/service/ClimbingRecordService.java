@@ -77,6 +77,37 @@ public class ClimbingRecordService {
     }
 
     @Transactional
+    public ClimbingRecordResponse updateRecord(Long userId, Long recordId, ClimbingRecordRequest request) {
+        ClimbingRecord record = recordRepository.findById(recordId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 기록입니다."));
+
+        // 본인 기록 검증
+        if (!record.getUser().getId().equals(userId)) {
+            throw new IllegalArgumentException("본인의 기록만 수정할 수 있습니다.");
+        }
+
+        // 기존 entries 전부 삭제 후 새 entries로 교체
+        record.getEntries().clear();
+
+        // 난이도별 기록 추가
+        if (request.getEntries() != null) {
+            for (ClimbingRecordRequest.EntryRequest entryReq : request.getEntries()) {
+                DifficultyColor color = colorRepository.findById(entryReq.getColorId())
+                        .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 난이도입니다."));
+                RecordEntry entry = RecordEntry.builder()
+                        .record(record)
+                        .color(color)
+                        .plannedCount(entryReq.getPlannedCount())
+                        .completedCount(entryReq.getCompletedCount())
+                        .build();
+                record.getEntries().add(entry);
+            }
+        }
+
+        return ClimbingRecordResponse.from(recordRepository.save(record));
+    }
+
+    @Transactional
     public void deleteRecord(Long userId, Long recordId) {
         ClimbingRecord record = recordRepository.findById(recordId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 기록입니다."));

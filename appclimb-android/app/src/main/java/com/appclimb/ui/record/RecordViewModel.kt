@@ -23,11 +23,12 @@ data class RecordUiState(
 
 data class AddRecordUiState(
     val isLoading: Boolean = false,
-    val gyms: List<GymResponse> = emptyList(),
+    val favoriteGyms: List<GymSummary> = emptyList(),
     val colors: List<DifficultyColorResponse> = emptyList(),
     val selectedGymId: Long? = null,
     val recordDate: String = LocalDate.now().toString(),
     val entries: Map<Long, Pair<Int, Int>> = emptyMap(), // colorId -> (planned, completed)
+    val editingRecordId: Long? = null,    // null = 새 기록, not null = 수정 중
     val isSuccess: Boolean = false,
     val error: String? = null
 )
@@ -46,7 +47,7 @@ class RecordViewModel @Inject constructor(
 
     init {
         loadRecords()
-        loadGyms()
+        loadFavoriteGyms()
     }
 
     fun loadRecords() {
@@ -75,11 +76,33 @@ class RecordViewModel @Inject constructor(
         }
     }
 
-    private fun loadGyms() {
+    // 수정 모드로 바텀시트 열기
+    fun startEdit(record: ClimbingRecordResponse) {
         viewModelScope.launch {
-            gymRepository.getAllGyms().onSuccess { gyms ->
-                _addState.value = _addState.value.copy(gyms = gyms)
-                gyms.firstOrNull()?.let { selectGym(it.id) }
+            // 해당 기록의 색깔 목록 로드
+            gymRepository.getColors(record.gymId).onSuccess { colors ->
+                val entries = record.entries?.associate { entry ->
+                    entry.colorId to Pair(entry.plannedCount, entry.completedCount)
+                } ?: emptyMap()
+
+                _addState.value = AddRecordUiState(
+                    favoriteGyms = _addState.value.favoriteGyms,
+                    colors = colors.sortedBy { it.levelOrder },
+                    selectedGymId = record.gymId,
+                    recordDate = record.recordDate,
+                    entries = entries,
+                    editingRecordId = record.id
+                )
+            }
+        }
+    }
+
+    private fun loadFavoriteGyms() {
+        viewModelScope.launch {
+            gymRepository.getMyFavorites().onSuccess { favorites ->
+                val summaries = favorites.map { GymSummary(it.gymId, it.gymName) }
+                _addState.value = _addState.value.copy(favoriteGyms = summaries)
+                summaries.firstOrNull()?.let { selectGym(it.id) }
             }
         }
     }
@@ -88,7 +111,7 @@ class RecordViewModel @Inject constructor(
         _addState.value = _addState.value.copy(selectedGymId = gymId, entries = emptyMap())
         viewModelScope.launch {
             gymRepository.getColors(gymId).onSuccess { colors ->
-                _addState.value = _addState.value.copy(colors = colors)
+                _addState.value = _addState.value.copy(colors = colors.sortedBy { it.levelOrder })
             }
         }
     }
@@ -105,27 +128,41 @@ class RecordViewModel @Inject constructor(
 
     fun saveRecord() {
         val state = _addState.value
-        val gymId = state.selectedGymId ?: return
         viewModelScope.launch {
             _addState.value = state.copy(isLoading = true)
-            val request = ClimbingRecordRequest(
-                gymId = gymId,
-                recordDate = state.recordDate,
-                entries = state.entries.map { (colorId, counts) ->
-                    RecordEntryRequest(colorId, counts.first, counts.second)
-                }.filter { it.plannedCount > 0 || it.completedCount > 0 }
-            )
-            recordRepository.createRecord(request)
-                .onSuccess {
-                    _addState.value = AddRecordUiState(isSuccess = true)
-                    loadRecords()
-                }
-                .onFailure { _addState.value = state.copy(isLoading = false, error = it.message) }
+            val filteredEntries = state.entries.map { (colorId, counts) ->
+                RecordEntryRequest(colorId, counts.first, counts.second)
+            }.filter { it.plannedCount > 0 || it.completedCount > 0 }
+
+            if (state.editingRecordId != null) {
+                // 수정 모드
+                val request = RecordUpdateRequest(entries = filteredEntries)
+                recordRepository.updateRecord(state.editingRecordId, request)
+                    .onSuccess {
+                        _addState.value = AddRecordUiState(isSuccess = true)
+                        loadRecords()
+                    }
+                    .onFailure { _addState.value = state.copy(isLoading = false, error = it.message) }
+            } else {
+                // 새 기록
+                val gymId = state.selectedGymId ?: return@launch
+                val request = ClimbingRecordRequest(
+                    gymId = gymId,
+                    recordDate = state.recordDate,
+                    entries = filteredEntries
+                )
+                recordRepository.createRecord(request)
+                    .onSuccess {
+                        _addState.value = AddRecordUiState(isSuccess = true)
+                        loadRecords()
+                    }
+                    .onFailure { _addState.value = state.copy(isLoading = false, error = it.message) }
+            }
         }
     }
 
     fun resetAddState() {
         _addState.value = AddRecordUiState()
-        loadGyms()
+        loadFavoriteGyms()
     }
 }

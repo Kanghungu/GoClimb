@@ -50,6 +50,8 @@
 | MANAGER | 지점 관리자 | 세팅일정 / 이벤트 / 난이도색깔 / 섹터관리 / 직원관리 |
 | USER | 일반 사용자 | 관리자 웹 접근 불가 (앱 전용) |
 
+> **직원(gym_staff)**: SETTER / TEACHER / FRONT / MANAGER_STAFF — DB 기록·분류용이며 별도 로그인 없음
+
 ### 지점 관리자 온보딩 흐름
 
 ```
@@ -179,7 +181,7 @@
 → 모두 `gym_id` FK로 지점에 귀속. MANAGER만 등록/수정/삭제 가능.
 
 ### climbing_records / record_entries
-→ 앱 사용자(USER)의 운동 기록. 날짜별 세션 + 난이도별 세부 기록.
+→ 앱 사용자(USER)의 운동 기록. 날짜별 세션 + 난이도별 세부 기록 (시도 수 / 완등 수).
 
 ---
 
@@ -239,8 +241,12 @@
 ### 운동 기록 / 즐겨찾기 (앱 전용)
 | Method | URL | 설명 | 권한 |
 |--------|-----|------|------|
-| GET/POST/PUT/DELETE | /api/records | 운동 기록 | USER |
-| GET/POST/DELETE | /api/favorites | 즐겨찾기 | USER |
+| GET | /api/records?month=yyyy-MM | 월별 운동 기록 조회 | USER |
+| POST | /api/records | 운동 기록 등록 | USER |
+| DELETE | /api/records/{id} | 운동 기록 삭제 | USER |
+| GET | /api/favorites | 즐겨찾기 목록 | USER |
+| POST | /api/favorites/{gymId} | 즐겨찾기 추가 | USER |
+| DELETE | /api/favorites/{gymId} | 즐겨찾기 삭제 | USER |
 | GET | /api/me/gym | 내 담당 지점 조회 | MANAGER |
 
 ---
@@ -253,7 +259,63 @@
 
 ---
 
-## 8. 개발 현황
+## 8. Android 앱 구조
+
+### 기술 스택
+| 항목 | 버전 |
+|------|------|
+| Kotlin | 1.9.22 |
+| Android Gradle Plugin | 8.2.2 |
+| Gradle Wrapper | 8.5 (JDK 21 호환) |
+| Compose BOM | 2024.02.00 |
+| Hilt | 2.51.1 |
+| Retrofit | 2.11.0 |
+| OkHttp | 4.12.0 |
+| Coil | 2.6.0 |
+| DataStore | 1.1.1 |
+| Navigation Compose | 2.7.7 |
+
+### 화면 구성
+```
+로그인 / 회원가입
+└── 메인 (바텀탭 4개)
+    ├── 지점 탭
+    │   ├── GymListScreen    — 전체 지점 목록 + 즐겨찾기 토글
+    │   └── GymDetailScreen  — 지점 상세 (정보 / 난이도색깔 / 이번달 세팅일정)
+    ├── 캘린더 탭
+    │   └── CalendarScreen   — 즐겨찾기 지점 선택 + 월별 세팅일정 캘린더
+    ├── 기록 탭
+    │   └── RecordScreen     — 월별 운동기록 조회 / 추가 (즐겨찾기 지점 기반)
+    └── 프로필 탭
+        └── ProfileScreen    — 이번달 통계 (방문/완등/완등률) + 기록 피드 + 로그아웃
+```
+
+### 패키지 구조
+```
+com.appclimb
+├── data/
+│   ├── api/          ApiService, NetworkModule (Hilt)
+│   ├── model/        Models.kt (GymSummary, GymResponse, ClimbingRecord 등)
+│   └── repository/   AuthRepository, GymRepository, RecordRepository
+├── ui/
+│   ├── auth/         LoginScreen, RegisterScreen, LoginViewModel
+│   ├── gym/          GymListScreen, GymDetailScreen, GymViewModel, GymDetailViewModel
+│   ├── calendar/     CalendarScreen, CalendarViewModel
+│   ├── record/       RecordScreen, RecordViewModel
+│   └── profile/      ProfileScreen, ProfileViewModel
+├── navigation/       AppNavigation (루트), MainScreen (바텀탭)
+└── util/             TokenManager (DataStore)
+```
+
+### 주요 설계 결정
+- **즐겨찾기 기반 연동**: 캘린더/기록 화면은 즐겨찾기 지점 목록만 표시. 즐겨찾기가 없으면 안내 메시지
+- **토큰 저장**: DataStore Preferences (JWT + userId + nickname + role)
+- **JWT 주입**: OkHttp Interceptor에서 DataStore 토큰 자동 첨부
+- **BASE_URL**: `https://goclimb-s8c2.onrender.com/api/` (BuildConfig)
+
+---
+
+## 9. 개발 현황
 
 ```
 ✅ Phase 1 - 백엔드 기반
@@ -278,13 +340,33 @@
   ├── Supabase (PostgreSQL)
   └── Vercel (React)
 
-🔲 Phase 5 - 안드로이드 앱 (예정)
-  ├── 로그인/회원가입
-  ├── 즐겨찾기 지점 목록
-  ├── 캘린더 (세팅 일정 표시)
-  └── 운동 기록 입력/조회
+✅ Phase 5 - 안드로이드 앱 (구현 완료, 테스트 진행 중)
+  ├── 로그인 / 회원가입
+  ├── 지점 목록 + 검색(이름/주소) + 즐겨찾기 필터 토글
+  ├── 지점 상세 (난이도 색깔 + 세팅일정)
+  ├── 캘린더 (즐겨찾기 지점 기반 세팅일정 표시)
+  ├── 이벤트 (진행중/예정/종료 분류)
+  ├── 운동 기록 입력/수정/삭제 (날짜 피커, 즐겨찾기 지점 기반, 난이도별 기록)
+  ├── 통계 (최근 6개월 월별 차트 + 난이도별 완등률)
+  └── 프로필 (이번달 통계 + 기록 피드 + 로그아웃)
+
+✅ Phase 5-2 - 백엔드 추가 기능
+  ├── 운동 기록 수정 API (PUT /api/records/{id})
+  ├── FCM 토큰 등록/삭제 API (POST/DELETE /api/user/fcm-token)
+  └── FCM 푸시 알림 인프라 (stub — Firebase 연결 시 활성화)
+      └── 세팅일정 등록 시 즐겨찾기 사용자에게 알림 발송 예정
+
+✅ Phase 5-3 - 관리자 웹 개선
+  ├── AdminDashboard (ADMIN 전용): 지점 수 / 대기중 신청 통계 + 빠른 처리
+  └── ManagerDashboard 강화: 직원현황 + 이벤트 미리보기 + 바로가기 링크
+
+🔲 Phase 6 - SNS 기능 (완전 보류)
+  ├── 클라이밍 포스트 (텍스트 + 이미지 + YouTube URL)
+  ├── 공개범위 설정 (전체공개 / 나만)
+  └── 미디어 스토리지: Cloudflare R2 또는 Supabase Storage Pro 검토 중
+      └── 영상: YouTube URL 임베드 방식 유력 (직접 저장 비용 이슈)
 ```
 
 ---
 
-*최초 작성: 2026-04-15 | 최종 수정: 2026-04-16*
+*최초 작성: 2026-04-15 | 최종 수정: 2026-04-17*

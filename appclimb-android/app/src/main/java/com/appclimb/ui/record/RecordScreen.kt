@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -17,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.appclimb.data.model.ClimbingRecordResponse
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,7 +32,6 @@ fun RecordScreen(viewModel: RecordViewModel = hiltViewModel()) {
             TopAppBar(
                 title = { Text("💪 운동 기록") },
                 actions = {
-                    // 월 이동
                     IconButton(onClick = { viewModel.prevMonth() }) {
                         Icon(Icons.Default.ChevronLeft, contentDescription = "이전 달")
                     }
@@ -46,7 +47,10 @@ fun RecordScreen(viewModel: RecordViewModel = hiltViewModel()) {
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddSheet = true }) {
+            FloatingActionButton(onClick = {
+                viewModel.resetAddState()
+                showAddSheet = true
+            }) {
                 Icon(Icons.Default.Add, contentDescription = "기록 추가")
             }
         }
@@ -60,9 +64,9 @@ fun RecordScreen(viewModel: RecordViewModel = hiltViewModel()) {
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text("이번 달 운동 기록이 없습니다.", color = MaterialTheme.colorScheme.secondary)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("+ 버튼을 눌러 기록을 추가하세요.", style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.secondary)
+                        Spacer(Modifier.height(8.dp))
+                        Text("+ 버튼을 눌러 기록을 추가하세요.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                     }
                 }
                 else -> {
@@ -73,7 +77,11 @@ fun RecordScreen(viewModel: RecordViewModel = hiltViewModel()) {
                         items(uiState.records) { record ->
                             RecordCard(
                                 record = record,
-                                onDelete = { viewModel.deleteRecord(record.id) }
+                                onDelete = { viewModel.deleteRecord(record.id) },
+                                onEdit = {
+                                    viewModel.startEdit(record)
+                                    showAddSheet = true
+                                }
                             )
                         }
                     }
@@ -91,13 +99,14 @@ fun RecordScreen(viewModel: RecordViewModel = hiltViewModel()) {
 }
 
 @Composable
-fun RecordCard(record: ClimbingRecordResponse, onDelete: () -> Unit) {
+fun RecordCard(
+    record: ClimbingRecordResponse,
+    onDelete: () -> Unit,
+    onEdit: () -> Unit
+) {
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
+    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -105,46 +114,48 @@ fun RecordCard(record: ClimbingRecordResponse, onDelete: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text(
-                        text = record.recordDate,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text(record.recordDate, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     record.gymName?.let {
-                        Text(text = it, style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.secondary)
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                     }
                 }
-                IconButton(onClick = { showDeleteDialog = true }) {
-                    Icon(Icons.Default.Delete, contentDescription = "삭제",
-                        tint = MaterialTheme.colorScheme.secondary)
+                Row {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Default.Edit, contentDescription = "수정", tint = MaterialTheme.colorScheme.secondary)
+                    }
+                    IconButton(onClick = { showDeleteDialog = true }) {
+                        Icon(Icons.Default.Delete, contentDescription = "삭제", tint = MaterialTheme.colorScheme.secondary)
+                    }
                 }
             }
 
             record.entries?.takeIf { it.isNotEmpty() }?.let { entries ->
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(Modifier.height(12.dp))
                 entries.forEach { entry ->
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // 색깔 표시
                         val color = parseHexColor(entry.colorHex) ?: MaterialTheme.colorScheme.primary
+                        Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(color))
+                        Spacer(Modifier.width(8.dp))
+                        Text(entry.colorName ?: "색깔",
+                            style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
 
-                        Box(
-                            modifier = Modifier.size(12.dp).clip(CircleShape).background(color)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = entry.colorName ?: "색깔",
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text(
-                            text = "${entry.completedCount}/${entry.plannedCount}",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Medium
-                        )
+                        // 진행 바
+                        if (entry.plannedCount > 0) {
+                            Box(
+                                modifier = Modifier.width(80.dp).height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                val ratio = (entry.completedCount.toFloat() / entry.plannedCount).coerceIn(0f, 1f)
+                                Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(ratio).background(color))
+                            }
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        Text("${entry.completedCount}/${entry.plannedCount}",
+                            style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -161,51 +172,70 @@ fun RecordCard(record: ClimbingRecordResponse, onDelete: () -> Unit) {
                     Text("삭제", color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) { Text("취소") }
-            }
+            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("취소") } }
         )
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddRecordBottomSheet(
-    viewModel: RecordViewModel,
-    onDismiss: () -> Unit
-) {
+fun AddRecordBottomSheet(viewModel: RecordViewModel, onDismiss: () -> Unit) {
     val state by viewModel.addState.collectAsState()
+    var showDatePicker by remember { mutableStateOf(false) }
+    val isEditing = state.editingRecordId != null
 
-    LaunchedEffect(state.isSuccess) {
-        if (state.isSuccess) onDismiss()
+    LaunchedEffect(state.isSuccess) { if (state.isSuccess) onDismiss() }
+
+    // 날짜 피커
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = runCatching {
+                LocalDate.parse(state.recordDate)
+                    .toEpochDay() * 86400000L
+            }.getOrDefault(System.currentTimeMillis())
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val date = java.time.Instant.ofEpochMilli(millis)
+                            .atZone(java.time.ZoneId.of("UTC"))
+                            .toLocalDate()
+                        viewModel.setDate(date.toString())
+                    }
+                    showDatePicker = false
+                }) { Text("확인") }
+            },
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("취소") } }
+        ) { DatePicker(state = datePickerState) }
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
+            modifier = Modifier.fillMaxWidth()
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 32.dp)
         ) {
-            Text("운동 기록 추가", style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(20.dp))
+            Text(
+                if (isEditing) "운동 기록 수정" else "운동 기록 추가",
+                style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(20.dp))
 
-            // 지점 선택
-            if (state.gyms.isNotEmpty()) {
+            // 지점 선택 (새 기록일 때만)
+            if (!isEditing && state.favoriteGyms.isNotEmpty()) {
                 var gymExpanded by remember { mutableStateOf(false) }
-                val selectedGymName = state.gyms.find { it.id == state.selectedGymId }?.name ?: "지점 선택"
+                val selectedGymName = state.favoriteGyms.find { it.id == state.selectedGymId }?.name ?: "지점 선택"
                 ExposedDropdownMenuBox(expanded = gymExpanded, onExpandedChange = { gymExpanded = it }) {
                     OutlinedTextField(
-                        value = selectedGymName,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("지점") },
+                        value = selectedGymName, onValueChange = {}, readOnly = true,
+                        label = { Text("즐겨찾기 지점") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(gymExpanded) },
                         modifier = Modifier.fillMaxWidth().menuAnchor()
                     )
                     ExposedDropdownMenu(expanded = gymExpanded, onDismissRequest = { gymExpanded = false }) {
-                        state.gyms.forEach { gym ->
+                        state.favoriteGyms.forEach { gym ->
                             DropdownMenuItem(
                                 text = { Text(gym.name) },
                                 onClick = { viewModel.selectGym(gym.id); gymExpanded = false }
@@ -213,72 +243,74 @@ fun AddRecordBottomSheet(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(Modifier.height(12.dp))
+            } else if (!isEditing && !state.isLoading) {
+                Text("즐겨찾기한 지점이 없습니다.\n지점 탭에서 ♡를 눌러 추가하세요.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                Spacer(Modifier.height(12.dp))
             }
 
-            // 날짜 입력
-            OutlinedTextField(
-                value = state.recordDate,
-                onValueChange = { viewModel.setDate(it) },
-                label = { Text("날짜 (yyyy-MM-dd)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
+            // 날짜 선택 (새 기록일 때만)
+            if (!isEditing) {
+                OutlinedTextField(
+                    value = state.recordDate,
+                    onValueChange = {},
+                    label = { Text("날짜") },
+                    readOnly = true,
+                    trailingIcon = {
+                        IconButton(onClick = { showDatePicker = true }) {
+                            Icon(Icons.Default.CalendarMonth, contentDescription = "날짜 선택")
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(16.dp))
+            } else {
+                // 수정 모드: 날짜/지점 표시만
+                Text("${state.recordDate} 기록 수정",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+                Spacer(Modifier.height(16.dp))
+            }
 
             // 난이도별 기록 입력
             if (state.colors.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("난이도별 기록", style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold)
-                Spacer(modifier = Modifier.height(8.dp))
-
+                Text("난이도별 기록", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
                 state.colors.forEach { color ->
                     val entry = state.entries[color.id] ?: Pair(0, 0)
                     val hexColor = parseHexColor(color.colorHex) ?: MaterialTheme.colorScheme.primary
-
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(modifier = Modifier.size(14.dp).clip(CircleShape).background(hexColor))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(color.colorName, modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodyMedium)
-
-                        // 목표 수
-                        NumberInput(
-                            label = "목표",
-                            value = entry.first,
-                            onChange = { viewModel.updateEntry(color.id, it, entry.second) }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        // 완료 수
-                        NumberInput(
-                            label = "완료",
-                            value = entry.second,
-                            onChange = { viewModel.updateEntry(color.id, entry.first, it) }
-                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(color.colorName, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        NumberInput(label = "목표", value = entry.first,
+                            onChange = { viewModel.updateEntry(color.id, it, entry.second) })
+                        Spacer(Modifier.width(8.dp))
+                        NumberInput(label = "완료", value = entry.second,
+                            onChange = { viewModel.updateEntry(color.id, entry.first, it) })
                     }
                 }
             }
 
             state.error?.let {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(it, color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(8.dp))
+                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(Modifier.height(20.dp))
             Button(
                 onClick = { viewModel.saveRecord() },
-                enabled = !state.isLoading && state.selectedGymId != null,
+                enabled = !state.isLoading && (isEditing || state.selectedGymId != null),
                 modifier = Modifier.fillMaxWidth().height(50.dp)
             ) {
                 if (state.isLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp),
                         color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
                 } else {
-                    Text("저장", fontWeight = FontWeight.SemiBold)
+                    Text(if (isEditing) "수정 완료" else "저장", fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -288,26 +320,15 @@ fun AddRecordBottomSheet(
 @Composable
 fun NumberInput(label: String, value: Int, onChange: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.secondary)
-        Spacer(modifier = Modifier.width(4.dp))
-        IconButton(
-            onClick = { if (value > 0) onChange(value - 1) },
-            modifier = Modifier.size(28.dp)
-        ) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+        Spacer(Modifier.width(4.dp))
+        IconButton(onClick = { if (value > 0) onChange(value - 1) }, modifier = Modifier.size(28.dp)) {
             Icon(Icons.Default.Remove, contentDescription = "감소", modifier = Modifier.size(16.dp))
         }
-        Text(
-            text = value.toString(),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
+        Text(value.toString(), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold,
             modifier = Modifier.widthIn(min = 24.dp),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-        )
-        IconButton(
-            onClick = { onChange(value + 1) },
-            modifier = Modifier.size(28.dp)
-        ) {
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        IconButton(onClick = { onChange(value + 1) }, modifier = Modifier.size(28.dp)) {
             Icon(Icons.Default.Add, contentDescription = "증가", modifier = Modifier.size(16.dp))
         }
     }
@@ -315,11 +336,6 @@ fun NumberInput(label: String, value: Int, onChange: (Int) -> Unit) {
 
 private fun parseHexColor(raw: String?): Color? {
     if (raw.isNullOrBlank()) return null
-
     val normalized = if (raw.startsWith("#")) raw else "#$raw"
-    return try {
-        Color(android.graphics.Color.parseColor(normalized))
-    } catch (_: IllegalArgumentException) {
-        null
-    }
+    return try { Color(android.graphics.Color.parseColor(normalized)) } catch (_: Exception) { null }
 }

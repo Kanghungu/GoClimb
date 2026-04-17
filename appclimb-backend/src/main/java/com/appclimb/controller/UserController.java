@@ -1,8 +1,10 @@
 package com.appclimb.controller;
 
+import com.appclimb.dto.request.FcmTokenRequest;
 import com.appclimb.dto.response.MyGymResponse;
 import com.appclimb.dto.response.UserResponse;
 import com.appclimb.service.UserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -50,6 +52,21 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> removeManager(@PathVariable Long gymId, @PathVariable Long userId) {
         userService.removeManager(gymId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/api/user/fcm-token")
+    public ResponseEntity<Void> registerFcmToken(
+            @AuthenticationPrincipal Long userId,
+            @Valid @RequestBody FcmTokenRequest request) {
+        userService.registerOrUpdateFcmToken(userId, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/api/user/fcm-token")
+    public ResponseEntity<Void> deleteFcmToken(
+            @RequestParam String token) {
+        userService.deleteFcmToken(token);
         return ResponseEntity.noContent().build();
     }
 }

@@ -48,7 +48,25 @@ interface ApiService {
     @DELETE("records/{recordId}")
     suspend fun deleteRecord(@Path("recordId") recordId: Long)
 
+    // ──────────── Record Update ────────────
+    @PUT("records/{recordId}")
+    suspend fun updateRecord(
+        @Path("recordId") recordId: Long,
+        @Body request: RecordUpdateRequest
+    ): ClimbingRecordResponse
+
+    // ──────────── Events ────────────
+    @GET("gyms/{gymId}/events")
+    suspend fun getEvents(@Path("gymId") gymId: Long): List<EventResponse>
+
     // ──────────── Difficulty Color ────────────
     @GET("gyms/{gymId}/colors")
     suspend fun getColors(@Path("gymId") gymId: Long): List<DifficultyColorResponse>
+
+    // ──────────── FCM ────────────
+    @POST("user/fcm-token")
+    suspend fun registerFcmToken(@Body request: FcmTokenRequest)
+
+    @DELETE("user/fcm-token")
+    suspend fun deleteFcmToken(@Query("token") token: String)
 }

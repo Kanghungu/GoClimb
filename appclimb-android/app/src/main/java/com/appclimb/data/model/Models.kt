@@ -25,6 +25,9 @@ data class AuthResponse(
 
 // ──────────────── Gym ────────────────
 
+// 즐겨찾기/선택용 간소화 모델
+data class GymSummary(val id: Long, val name: String)
+
 data class GymResponse(
     val id: Long,
     val name: String,
@@ -81,6 +84,31 @@ data class RecordEntryRequest(
     val colorId: Long,
     val plannedCount: Int,
     val completedCount: Int
+)
+
+// ──────────────── Event ────────────────
+
+data class EventResponse(
+    val id: Long,
+    val gymId: Long,
+    val gymName: String?,
+    val title: String,
+    val description: String?,
+    val startDate: String,
+    val endDate: String?
+)
+
+// ──────────────── FCM ────────────────
+
+data class FcmTokenRequest(
+    val token: String,
+    val deviceType: String = "ANDROID"
+)
+
+// ──────────────── Record Update ────────────────
+
+data class RecordUpdateRequest(
+    val entries: List<RecordEntryRequest>
 )
 
 // ──────────────── Difficulty Color ────────────────

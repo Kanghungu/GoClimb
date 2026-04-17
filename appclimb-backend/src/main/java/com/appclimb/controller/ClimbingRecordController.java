@@ -33,6 +33,14 @@ public class ClimbingRecordController {
         return ResponseEntity.ok(recordService.createRecord(userId, request));
     }
 
+    @PutMapping("/{recordId}")
+    public ResponseEntity<ClimbingRecordResponse> updateRecord(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long recordId,
+            @Valid @RequestBody ClimbingRecordRequest request) {
+        return ResponseEntity.ok(recordService.updateRecord(userId, recordId, request));
+    }
+
     @DeleteMapping("/{recordId}")
     public ResponseEntity<Void> deleteRecord(
             @AuthenticationPrincipal Long userId,

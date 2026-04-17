@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,11 +21,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,12 +30,10 @@ fun CalendarScreen(viewModel: CalendarViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
 
-    // 선택된 날짜의 일정
     val selectedSchedules = selectedDate?.let { date ->
         uiState.schedules.filter { it.settingDate == date.toString() }
     } ?: emptyList()
 
-    // 일정이 있는 날짜 Set
     val scheduleDates = uiState.schedules.map { it.settingDate }.toSet()
 
     Scaffold(
@@ -45,16 +41,49 @@ fun CalendarScreen(viewModel: CalendarViewModel = hiltViewModel()) {
             TopAppBar(title = { Text("📅 세팅 일정") })
         }
     ) { padding ->
+
+        // 즐겨찾기 없을 때 안내
+        if (uiState.noFavorites) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.FavoriteBorder,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.secondary
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        "즐겨찾기한 지점이 없습니다.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "지점 탭에서 ♡를 눌러 즐겨찾기를 추가하세요.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 32.dp)
+                    )
+                }
+            }
+            return@Scaffold
+        }
+
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 지점 선택
-            if (uiState.gyms.isNotEmpty()) {
+            // 즐겨찾기 지점 선택
+            if (uiState.favoriteGyms.isNotEmpty()) {
                 item {
                     GymSelector(
-                        gyms = uiState.gyms.map { it.id to it.name },
+                        gyms = uiState.favoriteGyms.map { it.id to it.name },
                         selectedGymId = uiState.selectedGymId,
                         onGymSelect = { viewModel.selectGym(it) }
                     )
@@ -82,36 +111,45 @@ fun CalendarScreen(viewModel: CalendarViewModel = hiltViewModel()) {
                 }
             }
 
-            // 캘린더 그리드
-            item {
-                MonthCalendar(
-                    yearMonth = uiState.currentMonth,
-                    scheduleDates = scheduleDates,
-                    selectedDate = selectedDate,
-                    onDateSelected = { selectedDate = if (selectedDate == it) null else it }
-                )
-            }
-
-            // 선택된 날짜 일정
-            if (selectedDate != null) {
+            // 로딩
+            if (uiState.isLoading) {
                 item {
-                    Text(
-                        text = "${selectedDate!!.format(DateTimeFormatter.ofPattern("M월 d일"))} 세팅 일정",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
+                    Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
+            } else {
+                // 캘린더 그리드
+                item {
+                    MonthCalendar(
+                        yearMonth = uiState.currentMonth,
+                        scheduleDates = scheduleDates,
+                        selectedDate = selectedDate,
+                        onDateSelected = { selectedDate = if (selectedDate == it) null else it }
                     )
                 }
-                if (selectedSchedules.isEmpty()) {
+
+                // 선택된 날짜 일정
+                if (selectedDate != null) {
                     item {
                         Text(
-                            "이 날의 세팅 일정이 없습니다.",
-                            color = MaterialTheme.colorScheme.secondary,
-                            style = MaterialTheme.typography.bodyMedium
+                            text = "${selectedDate!!.format(DateTimeFormatter.ofPattern("M월 d일"))} 세팅 일정",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
-                } else {
-                    items(selectedSchedules) { schedule ->
-                        ScheduleItem(schedule)
+                    if (selectedSchedules.isEmpty()) {
+                        item {
+                            Text(
+                                "이 날의 세팅 일정이 없습니다.",
+                                color = MaterialTheme.colorScheme.secondary,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    } else {
+                        items(selectedSchedules) { schedule ->
+                            ScheduleItem(schedule)
+                        }
                     }
                 }
             }
@@ -158,12 +196,11 @@ fun MonthCalendar(
 ) {
     val firstDay = yearMonth.atDay(1)
     val daysInMonth = yearMonth.lengthOfMonth()
-    val startOffset = firstDay.dayOfWeek.value % 7 // 0=Sun
+    val startOffset = firstDay.dayOfWeek.value % 7
 
     val days = listOf("일", "월", "화", "수", "목", "금", "토")
 
     Column {
-        // 요일 헤더
         Row(modifier = Modifier.fillMaxWidth()) {
             days.forEach { day ->
                 Text(
@@ -177,7 +214,6 @@ fun MonthCalendar(
         }
         Spacer(modifier = Modifier.height(8.dp))
 
-        // 날짜 그리드
         val totalCells = startOffset + daysInMonth
         val rows = (totalCells + 6) / 7
 
@@ -255,8 +291,11 @@ fun ScheduleItem(schedule: com.appclimb.data.model.SettingScheduleResponse) {
                     fontWeight = FontWeight.SemiBold
                 )
                 schedule.description?.let {
-                    Text(text = it, style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.secondary)
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
                 }
             }
         }
