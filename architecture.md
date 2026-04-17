@@ -370,3 +370,48 @@ com.appclimb
 ---
 
 *최초 작성: 2026-04-15 | 최종 수정: 2026-04-17*
+
+## 10. Recent Update Summary (2026-04-17)
+
+### Admin
+- Updated routing and layout wiring in `appclimb-admin/src/App.jsx` and `appclimb-admin/src/components/Layout.jsx`.
+- Added `appclimb-admin/src/pages/admin/AdminDashboard.jsx`.
+- Expanded `appclimb-admin/src/pages/manager/ManagerDashboard.jsx` with richer dashboard behavior.
+
+### Android
+- Extended API and model layers in:
+  - `appclimb-android/app/src/main/java/com/appclimb/data/api/ApiService.kt`
+  - `appclimb-android/app/src/main/java/com/appclimb/data/model/Models.kt`
+  - `appclimb-android/app/src/main/java/com/appclimb/data/repository/EventRepository.kt`
+  - `appclimb-android/app/src/main/java/com/appclimb/data/repository/GymRepository.kt`
+  - `appclimb-android/app/src/main/java/com/appclimb/data/repository/RecordRepository.kt`
+- Expanded navigation in `appclimb-android/app/src/main/java/com/appclimb/navigation/AppNavigation.kt`.
+- Expanded calendar, gym, and record flows in:
+  - `appclimb-android/app/src/main/java/com/appclimb/ui/calendar/`
+  - `appclimb-android/app/src/main/java/com/appclimb/ui/gym/`
+  - `appclimb-android/app/src/main/java/com/appclimb/ui/record/`
+- Added new screens and view models for:
+  - `appclimb-android/app/src/main/java/com/appclimb/ui/event/`
+  - `appclimb-android/app/src/main/java/com/appclimb/ui/profile/`
+  - `appclimb-android/app/src/main/java/com/appclimb/ui/stats/`
+- Cleaned trailing invalid null bytes from `appclimb-android/app/src/main/java/com/appclimb/ui/record/RecordScreen.kt`.
+
+### Backend
+- Updated security and controller flows in:
+  - `appclimb-backend/src/main/java/com/appclimb/config/SecurityConfig.java`
+  - `appclimb-backend/src/main/java/com/appclimb/controller/ClimbingRecordController.java`
+  - `appclimb-backend/src/main/java/com/appclimb/controller/UserController.java`
+- Expanded service and repository logic in:
+  - `appclimb-backend/src/main/java/com/appclimb/repository/UserFavoriteGymRepository.java`
+  - `appclimb-backend/src/main/java/com/appclimb/service/ClimbingRecordService.java`
+  - `appclimb-backend/src/main/java/com/appclimb/service/SettingScheduleService.java`
+  - `appclimb-backend/src/main/java/com/appclimb/service/UserService.java`
+- Added FCM token support in:
+  - `appclimb-backend/src/main/java/com/appclimb/domain/UserFcmToken.java`
+  - `appclimb-backend/src/main/java/com/appclimb/dto/request/FcmTokenRequest.java`
+  - `appclimb-backend/src/main/java/com/appclimb/repository/UserFcmTokenRepository.java`
+  - `appclimb-backend/src/main/java/com/appclimb/service/FcmService.java`
+
+### Notes
+- This summary replaces the separate worklog file.
+- No additional test run was performed during this documentation-only follow-up.
